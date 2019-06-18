@@ -67,7 +67,9 @@ class FrontPanel extends LightStrip {
 		}
 	}
 	//---------------------------------------------------------------------- Helpers
-	
+	GridToIndex(x, y) {
+		return []
+	}
 
 
 }
