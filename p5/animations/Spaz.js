@@ -3,7 +3,6 @@
  */
 class Spaz extends Animation {
 	/**
-	* WavePulse is used to
 	* @param json - a json object containing initial inputs
 	*/
     constructor(json) {
@@ -12,8 +11,8 @@ class Spaz extends Animation {
     }
 
 	/**
-	* loads in information and updates the WavePulse/
-	* @param json - a json object containing more information about this WavePulse
+	* loads in information and updates the Spaz/
+	* @param json - a json object containing more information about this Spaz
 	*/
     loadJSON(json) {
         json = json === undefined ? {} : json;
@@ -30,12 +29,7 @@ class Spaz extends Animation {
     }
 
     loop() {
-        // this is used twice
-        let i;
-        animationFrame = (animationFrame + 1) % 22;
-        if (animationFrame == 0) {
-            this.updateRGB();
-        }
+        let i; // light index
 
         for (let y = 0; y < frontPanel.height; y++) {
             for (let x = 0; x <= frontPanel.width - 1; x++) {
