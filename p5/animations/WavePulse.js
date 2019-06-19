@@ -29,6 +29,7 @@ class WavePulse extends Animation{
 		this.updateRGB();
 	}
 	loop() {
+		let i;
 		animationFrame = (animationFrame+1) % 22;
 		if(animationFrame == 0) {
 			this.updateRGB();
@@ -46,7 +47,7 @@ class WavePulse extends Animation{
 					},i);
 			}
 			for(let x = frontPanel.width-1; x >= 22; x--) {
-				t = 256 - (((x-22)+(22-animationFrame)) % 22) * 6;
+				t = (((x)+(22-animationFrame)) % 22) * 6 + 128;
 				i = frontPanel.GridToIndex(x,y);
 				frontPanel.setColor(
 					{
@@ -54,6 +55,21 @@ class WavePulse extends Animation{
 						g:g*t,
 						b:b*t
 					},i);
+			}
+		}
+
+		for(let i = rightBoot.length-1; i>=0; i--) {
+			if(i > (22-animationFrame)/22 * rightBoot.length) {
+				rightBoot.setColor({r:r*255,g:g*255,b:b*255},i);
+			} else {
+				rightBoot.setColor({r:0,g:0,b:0},i);
+			}
+		}
+		for(let i = leftBoot.length-1; i>=0; i--) {
+			if(i > (22-animationFrame)/22 * rightBoot.length) {
+				leftBoot.setColor({r:r*255,g:g*255,b:b*255},i);
+			} else {
+				leftBoot.setColor({r:0,g:0,b:0},i);
 			}
 		}
 		delay(50);

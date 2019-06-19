@@ -27,6 +27,7 @@ function setup() {
 }
 
 function draw() {
+  background(50); //clears the screen
   currentAnimation.loop();
 	frame++;
 	frontPanel.draw();

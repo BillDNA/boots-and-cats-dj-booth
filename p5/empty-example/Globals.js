@@ -5,7 +5,7 @@ let frontPanel, rightBoot, leftBoot; //LightStip objects for drawing and holding
 let currentAnimation; //the active animation
 let frame = 0; //incremets over each frame
 let t,r,g,b;  //personaly i use these to help readablity 
-let i,animationFrame;
+let animationFrame;
 
 
 //here are some global helpers available in the arduino code
