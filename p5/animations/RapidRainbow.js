@@ -53,4 +53,5 @@ class RapidRainbow extends Animation {
 			b = random([0,255]);
 		}
 	}
+
 }

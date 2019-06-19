@@ -59,7 +59,7 @@ class LightStrip {
 		}
 	}
 	clear() {
-		this.createBlankValues(this.length);
+		this.values = this.createBlankValues(this.length);
 	}
 
 
