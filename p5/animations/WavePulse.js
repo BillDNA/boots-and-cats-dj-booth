@@ -36,6 +36,7 @@ class WavePulse extends Animation{
 		}
 		for(let y = 0; y < frontPanel.height;y++) {
 			
+			// Left of center
 			for(let x = 0; x < 22; x++) {
 				t = 256 - ((x+animationFrame) % 22) * 6;
 				i = frontPanel.GridToIndex(x,y);
@@ -46,6 +47,7 @@ class WavePulse extends Animation{
 						b:b*t
 					},i);
 			}
+			// Right of center
 			for(let x = frontPanel.width-1; x >= 22; x--) {
 				t = (((x)+(22-animationFrame)) % 22) * 6 + 128;
 				i = frontPanel.GridToIndex(x,y);

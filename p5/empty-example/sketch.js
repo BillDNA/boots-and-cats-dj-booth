@@ -5,6 +5,7 @@ function preload() {
   DOM.animationSelection.position(450,314);
   DOM.animationSelection.option('Rapid Rainbow');
   DOM.animationSelection.option('Wave Pulse');
+  DOM.animationSelection.option('Spaz');
   DOM.animationSelection.changed(changeAnimation);
   DOM.lbls = {};
   DOM.lbls.animationSelection = createP("Animation Selection:");
@@ -44,6 +45,9 @@ function changeAnimation() {
     currentAnimation.setUp();
   } else if(item === 'Wave Pulse') {
     currentAnimation = new WavePulse();
+    currentAnimation.setUp();
+  } else if(item === 'Spaz') {
+    currentAnimation = new Spaz();
     currentAnimation.setUp();
   }
 }
