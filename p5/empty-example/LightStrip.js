@@ -28,6 +28,12 @@ class LightStrip {
 	set length(new_length) {
 		console.log("WARNING: LightStrip length trying to set directly, use loadJSON()");	
 	}
+	get debug() {
+		return this._debug;
+	}
+	set debug(new_debug) {
+		this._debug = new_debug;
+	}
 	setColor(jsonColor, index) {
 		this.values[index] = jsonColor;
 	}
@@ -51,6 +57,9 @@ class LightStrip {
 			}
 			this.values[0] = newValue;
 		}
+	}
+	clear() {
+		this.createBlankValues(this.length);
 	}
 
 

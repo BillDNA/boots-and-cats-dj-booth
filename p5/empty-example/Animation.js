@@ -16,14 +16,21 @@ class Animation {
 	*/
 	loadJSON(json) {
 		json = json === undefined ? {} : json;
+		this._name = json.name === undefined ? "blank animation" : json.name;
 	}
 
-	setup() {
-
+	//------------------------------------------------------------- Getters and Setters
+	get name() {
+		return this._name;
+	}
+	set name(new_name) {
+		this._name = new_name;
 	}
 
+	setUp() {
+
+	}
 	loop() {
-
+		
 	}
-
 }

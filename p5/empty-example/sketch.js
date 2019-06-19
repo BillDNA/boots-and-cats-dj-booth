@@ -1,40 +1,25 @@
-let frontPanel, rightBoot, leftBoot;
-let frame = 0;
+function preload() {
+  boot_img = loadImage('assets/boots_cats_final-01.jpg');
+}
 function setup() {
 	createCanvas(1024, 1024);
 	background(50);
   // put setup code here
-  frontPanel = new FrontPanel({loc:{x:200,y:50}, ledSize:10});
-  rightBoot = new Boot({loc:{x:100,y:50}, ledSize: 10});
-  leftBoot = new Boot({loc:{x:600,y:50}, ledSize:10});
+  frontPanel = new FrontPanel({loc:{x:250,y:100}, ledSize:10});
+  rightBoot = new Boot({loc:{x:50,y:50}, ledSize: 10});
+  leftBoot = new Boot({loc:{x:720,y:50}, ledSize:10, isLeft:true});
+
+  currentAnimation = new RapidRainbow();
+  currentAnimation.setUp();
+
+  rightBoot.debug = true;
 }
 
 function draw() {
+  currentAnimation.loop();
 	frame++;
 	frontPanel.draw();
 	rightBoot.draw();
 	leftBoot.draw();
-  	// put drawing code here
-  	for(let i = 0; i < leftBoot.length; i++) {
-  		leftBoot.setColor(
-  			{
-  				r:255,
-  				g:0,
-  				b:0
-  			},
-  			i
-  			);
-  	}
-
-  	for(let x = 0; x < frontPanel.width;x++) {
-  		for(let y = 0; y < frontPanel.height;y++) {
-  			frontPanel.setColor(
-  				{
-  					r:((x+frame)%frontPanel.width)/frontPanel.width * 256, 
-  					g:((y+frame/10)%frontPanel.height)/frontPanel.height * 256,
-  					b:0},
-  				frontPanel.GridToIndex(x,y)
-  				);
-  		}
-  	}
+  
 }
