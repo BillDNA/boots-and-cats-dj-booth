@@ -28,6 +28,9 @@ class LightStrip {
 	set length(new_length) {
 		console.log("WARNING: LightStrip length trying to set directly, use loadJSON()");	
 	}
+	setColor(jsonColor, index) {
+		this.values[index] = jsonColor;
+	}
 	//------------------------------------------------------------- helpers
 	createBlankValues(length) {
 		let v = [];
