@@ -21,7 +21,6 @@ class Spaz extends Animation {
 
     //------------------------------------------------------------- draw methods
     setUp() {
-        animationFrame = 0;
         frontPanel.clear();
         rightBoot.clear();
         leftBoot.clear();
