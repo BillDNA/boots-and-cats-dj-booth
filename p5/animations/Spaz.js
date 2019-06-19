@@ -50,13 +50,13 @@ class Spaz extends Animation {
     }
     //------------------------------------------------------------- helpers
     updateRGB() {
-        r = random([0,255]);
-		g = random([0,255]);
-		b = random([0,255]);
-		while(r+g+b == 0) {
-			r = random([0,255]);
-			g = random([0,255]);
-			b = random([0,255]);
-		}
+        r = random([0, 255]);
+        g = random([0, 255]);
+        b = random([0, 255]);
+        while (r + g + b == 0) {
+            r = random([0, 255]);
+            g = random([0, 255]);
+            b = random([0, 255]);
+        }
     }
 }
