@@ -6,6 +6,7 @@ function preload() {
   DOM.animationSelection.option('Rapid Rainbow');
   DOM.animationSelection.option('Wave Pulse');
   DOM.animationSelection.option('Spaz');
+  DOM.animationSelection.option('Words Words');
   DOM.animationSelection.changed(changeAnimation);
   DOM.lbls = {};
   DOM.lbls.animationSelection = createP("Animation Selection:");
@@ -20,7 +21,7 @@ function setup() {
   rightBoot = new Boot({loc:{x:50,y:50}, ledSize: 10});
   leftBoot = new Boot({loc:{x:720,y:50}, ledSize:10, isLeft:true});
 
-  currentAnimation = new RapidRainbow();
+  currentAnimation = new WordWords();
   currentAnimation.setUp();
 
   rightBoot.debug = true;
@@ -48,6 +49,9 @@ function changeAnimation() {
     currentAnimation.setUp();
   } else if(item === 'Spaz') {
     currentAnimation = new Spaz();
+    currentAnimation.setUp();
+  } else if(item === 'Words Words') {
+    currentAnimation = new WordWords();
     currentAnimation.setUp();
   }
 }
