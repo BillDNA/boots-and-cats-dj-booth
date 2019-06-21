@@ -16,3 +16,8 @@ creating a new animation
 3. add to dropdown menu in sketch.js preloadfunction
 4. add you new animation to the changeAnimation() logic in sketch.js
 5. write animation code :)
+
+
+Sound Data Docs
+1. https://p5js.org/reference/#/p5.FFT
+2. https://p5js.org/reference/#/p5.FFT/getEnergy

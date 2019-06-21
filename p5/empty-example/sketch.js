@@ -26,10 +26,17 @@ function setup() {
 
   rightBoot.debug = true;
   leftBoot.debug = true;
+  //sound stuff
+  mic = new p5.AudioIn();
+  mic.start();    
+  fft = new p5.FFT();
+  fft.setInput(mic);
 }
 
 function draw() {
   background(50); //clears the screen
+  fft.analyze(); //updates the sound data
+
   currentAnimation.loop();
 	frame++;
 	frontPanel.draw();

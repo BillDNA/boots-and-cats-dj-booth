@@ -31,6 +31,9 @@ class WordWords extends Animation{
 	}
 
 	loop() {
+		let bass = fft.getEnergy("bass");
+		let mid = fft.getEnergy("mid");
+		let high = fft.getEnergy("treble");
 		let words = DOM.wordSelection.value();
 		let letters = [];
 		let totalWidth = 0;
@@ -47,20 +50,24 @@ class WordWords extends Animation{
 			let letter = letters[li];
 			for(let ly = 0; ly < letter.length; ly++) {
 				let oddStart = 0;
-				if((totalWidth - frame + offset) % 2 == 1 ) {
+				if((totalWidth - 34 + offset) % 2 == 1 ) {
 					oddStart = 1;
 				}
 				for(let lx = 0; lx < letter[ly].length; lx++) {
-					let sx = lx + totalWidth - frame + offset - oddStart;
+					let sx = lx + totalWidth - 34 + offset - oddStart;
 					let i = frontPanel.GridToIndex(sx,ly);
-					frontPanel.setColor({r:255 * letter[ly][lx],g:0,b:0},i);
+					frontPanel.setColor({
+						r:Math.min(255 * letter[ly][lx],64*letter[ly][lx] + bass * letter[ly][lx]),
+						g:Math.min(255 * letter[ly][lx],64*letter[ly][lx] + mid * letter[ly][lx]),
+						b:Math.min(255 * letter[ly][lx],64*letter[ly][lx] + high * letter[ly][lx]),
+					},i);
 				}
 			}
 			offset += letter[0].length+2;
 		}
 		console.log(totalWidth)
 		frame = (frame + 1) % (frontPanel.width*2 + totalWidth + 2*letters.length);
-		delay(100);
+		//delay(100);
 	}
 	//------------------------------------------------------------- helpers
 
