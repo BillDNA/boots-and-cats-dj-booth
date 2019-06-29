@@ -34,6 +34,10 @@ function setup() {
 }
 
 function draw() {
+  
+    if (getAudioContext().state !== 'running') {
+        getAudioContext().resume();
+    }
   background(50); //clears the screen
   fft.analyze(); //updates the sound data
 
