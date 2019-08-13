@@ -60,7 +60,7 @@ unsigned long microseconds;
 double vReal[SAMPLES];
 double vImag[SAMPLES];
 //----------------------------------------------------------------------------------- temp variables
-int i, x, y, temp, aniimation_frame;
+int i, x, y, temp, aniimation_frame, debug;
 uint8_t r, g, b;
 uint32_t color;
 //----------------------------------------------------------------------------------- setup
@@ -93,16 +93,24 @@ void setup() {
   //FFT
   //Serial.begin(115200);
   //sampling_period_us = round(1000000*(1.0/SAMPLING_FREQUENCY));
+  debug = 100;
 }
 void loop() {
   //Serial.println("update");
   frame = (frame + 1 ) % 3;
   //sample_sound();
   // set Eyes Color
-  eye_red = 128;
-  analogWrite(EYE_RED, eye_red * 1.0);
-  analogWrite(EYE_GREEN, eye_green * 0);
-  analogWrite(EYE_BLUE, eye_blue * 0);
+  debug--;
+  if(debug > 50) {
+    eye_red = 128;
+   digitalWrite(EYE_RED, HIGH);
+  } else {
+    eye_red = 0;
+    digitalWrite(EYE_RED, LOW);
+  }
+  if(debug < 0)  {debug = 100;}
+  digitalWrite(EYE_GREEN, HIGH);
+  digitalWrite(EYE_BLUE, HIGH);
 
   //set led strips
   for (i = 0; i < max(COUNT_LEFT, max(COUNT_RIGHT, COUNT_FRONT)); i++) {
