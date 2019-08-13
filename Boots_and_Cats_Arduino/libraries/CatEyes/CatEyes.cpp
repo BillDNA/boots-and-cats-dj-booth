@@ -3,7 +3,7 @@
 */
 
 #include "Arduino.h"
-#include "Arduino.h"
+#include "CatEyes.h"
 
 CatEyes::CatEyes() {
 	_r = false;

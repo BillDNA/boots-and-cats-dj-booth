@@ -27,7 +27,7 @@ class CatEyes {
     bool _b;
     bool _r;
     void _update();
-}
+};
 
 
 #endif
