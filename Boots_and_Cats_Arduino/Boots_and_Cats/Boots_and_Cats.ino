@@ -3,6 +3,7 @@
 
 #include <SoftTimer.h>
 
+#include <ArduinoTrace.h>
 
 
 #include <arduinoFFT.h>
@@ -83,7 +84,6 @@ class CatEyes {
     }
 };
 //----------------------------------------------------------------------------------- Cat Eyes End
-
 //----------------------------------------------------------------------------------- LED Start
 class LED {
 	private:
@@ -119,20 +119,22 @@ class LED {
 		return this->_blue[i];
 	}
 
-	void setIndex(int i, int r, int g, int b) {
-		this->_red[i] = r;
-		this->_green[i] = g;
-		this->_blue[i] = b;
+	void setIndex(int i, double r, double g, double b) {
+		this->_red[i] = (int)round(r);
+		this->_green[i] = (int)round(g);
+		this->_blue[i] = (int)round(b);
+    if(i < 0 || i > this->_total) {
+        Serial.println("BROKEN INDEX");
+    }
+    //Serial.print(r); Serial.print(" vs "); Serial.print((int)round(r)); Serial.print(" vs "); Serial.println(this->_red[i] );
 	}
-	void push(int r, int g, int b) {
+	void push(double r, double g, double b) {
 		for(int i = this->_total - 1; i > this->_zero; i--) {
 			this->_red[i] = this->_red[i-1];
 			this->_green[i] = this->_green[i-1];
 			this->_blue[i] = this->_blue[i-1];
 		}
-		this->_red[this->_zero] = r;
-		this->_green[this->_zero] = g;
-		this->_blue[this->_zero] = b;
+   this->setIndex(this->_zero,r,g,b);
 	}
 	int gridToIndex(int x, int y) {
 		int m[43] = {
@@ -141,7 +143,7 @@ class LED {
 		return m[x] + 43 * y;
 	}
 };
-
+//----------------------------------------------------------------------------------- LED end
 
 
 
@@ -184,10 +186,9 @@ LED frontPanel = LED(6, 0, 258);
 CatEyes eyes = CatEyes();
 
 int debug;
-//Main Loops
-
-//Aduio sampling
-double audioBins[16];
+//-------------------------------------------------------------------------------------------- Aduio sampling start
+double audioBins[12];
+bool hasProcessedAudioAtLeastOnce = false;
 void AudioSamplingLoop(Task* me) {
 	for(int i=0; i<SAMPLES; i++) {
         microseconds = micros();    //Overflows after around 70 minutes!
@@ -196,59 +197,31 @@ void AudioSamplingLoop(Task* me) {
         while(micros() < (microseconds + sampling_period_us)){ } //idle to make even sample
     }
 
-	FFT.Windowing(vReal, SAMPLES, FFT_WIN_TYP_HAMMING, FFT_FORWARD);
+	  FFT.Windowing(vReal, SAMPLES, FFT_WIN_TYP_HAMMING, FFT_FORWARD);
     FFT.Compute(vReal, vImag, SAMPLES, FFT_FORWARD);
     FFT.ComplexToMagnitude(vReal, vImag, SAMPLES);
     peak = FFT.MajorPeak(vReal, SAMPLES, SAMPLING_FREQUENCY);
 
-    int bin = -1;
+    int bin = 0;
+    double maxBin = 0;
+    double tempAudioBins[12] = {0,0,0,0,0,0,0,0,0,0,0,0};
     for(int i = 1; i < (SAMPLES/2); i++) {
-      /*
-        Serial.print(peak);     //Print out what frequency is the most dominant.
-        Serial.print("\t");
-        Serial.print(min(1000,vReal[i]));    //View only this line in serial plotter to visualize the bins
-        Serial.print("\t");
-
-		unsigned long CurrentTime = millis();
-		unsigned long ElapsedTime = CurrentTime - StartTime;
-        Serial.print(ElapsedTime);
-        Serial.print("\t");
-        Serial.println(calctime);*/
-        if(i % 16 == 0) { bin++; }
-      audioBins[bin] = vReal[i]; //transphers bins to somthing we can refger back to  
-    }
-
-}
-void drawLoop(Task* me) {
-  int x = -1;
-  if(peak / 1000 > 0.66) {
-  	eyes.blue();
-  } else if(peak / 1000 > 0.33) {
-  	eyes.green();
-  } else {
-  	eyes.red();
-  }
-  for(int i=1; i<(SAMPLES)/2; i++) {
-
-        x++;
-        if(x < FRONT_WIDTH-1) {
-          	for(int y = FRONT_HEIGHT-1; y >= 0; y--) {
-	          	int index = frontPanel.gridToIndex(x,FRONT_HEIGHT-y-1);
-				if(min(1000,audioBins[i])/1000.0 >= (double)y / (FRONT_HEIGHT-1)) {
-					if(x > 2./3. * FRONT_WIDTH) {
-						frontPanel.setIndex(index,0,0,128);
-					} else if(x > 1./3. * FRONT_WIDTH) {
-						frontPanel.setIndex(index,0,128,0);
-					} else {
-						frontPanel.setIndex(index,128,0,0);
-					}
-				} else {
-					frontPanel.setIndex(index,0,0,0);
-				}
-			}
+        if(i / (SAMPLES/2.0)  >= bin / 11.0) { 
+        	bin++; 
         }
-	}
-  
+      	tempAudioBins[bin] += vReal[i]; //transphers bins to somthing we can refger back to 
+      	maxBin = max(maxBin, tempAudioBins[bin]);
+    }
+    //now normalize the bins
+    for(bin = 0; bin < 12; bin++) {
+    	audioBins[bin] = tempAudioBins[bin] / maxBin;
+     //Serial.println(audioBins[bin]);
+    }
+  hasProcessedAudioAtLeastOnce = true;
+}
+//-------------------------------------------------------------------------------------------- Audio Sample Loop end
+//-------------------------------------------------------------------------------------------- Draw Loop start
+void drawLoop(Task* me) {  
   	for(int i = 0; i < max(leftBoot.total(),max(rightBoot.total(), frontPanel.total())); i++ ) {
 		uint32_t c;
 		//left boot
@@ -276,7 +249,6 @@ void drawLoop(Task* me) {
 		  rbs.setPixelColor(i,c); //set the color if we are in the bounds
 		}
 		//front pannel
-		//right boot
 		if(i < frontPanel.total()) {
 		  if(i < frontPanel.zero()) {
 		    c = fps.Color(0,0,0); //force the extra leds to black
@@ -289,14 +261,77 @@ void drawLoop(Task* me) {
 		  fps.setPixelColor(i,c); //set the color if we are in the bounds
 		}
 	}
-  //now show the strips
-  lbs.show();
-  rbs.show();
-  fps.show();
+	//now show the strips
+	lbs.show();
+	rbs.show();
+	fps.show();
+ AnimationLoop();
 }
+//-------------------------------------------------------------------------------------------- Draw Loop end
+//-------------------------------------------------------------------------------------------- Animation Managment Loop Start
+int currentAnimation = 0;
+unsigned long currentAnimationStartTime;
+void AnimationLoop(){//Task* me) {
+  if(hasProcessedAudioAtLeastOnce) {
+    
+    if(currentAnimation == 0) {
+      RainbowAnimation();
+    }
+  }
+}
+//-------------------------------------------------------------------------------------------- Animation Managment Loop End
+
+
+//-------------------------------------------------------------------------------------------- Rainbow Chase Animation start
+void RainbowAnimation() {
+  int x = -1;
+  if(peak / 1000 > 0.66) {
+  	eyes.blue();
+  } else if(peak / 1000 > 0.33) {
+  	eyes.green();
+  } else {
+  	eyes.red();
+  }
+  rightBoot.push(128,0,0);
+  
+  	leftBoot.push(
+  		((audioBins[0] + audioBins[1] + audioBins[2 ] + audioBins[3 ]) / 4.0) * 128,
+  		((audioBins[4] + audioBins[5] + audioBins[6 ] + audioBins[7 ]) / 4.0) * 128,
+  		((audioBins[8] + audioBins[9] + audioBins[10] + audioBins[11]) / 4.0) * 128
+  		);
+
+  	for(int x = FRONT_WIDTH-1;  x > 1; x--) {
+  		for(int y = 0; y < FRONT_HEIGHT; y++) {
+  			int index = frontPanel.gridToIndex(x,y);
+  			int index2 = frontPanel.gridToIndex(x-1,y);
+  			frontPanel.setIndex(index,
+  				frontPanel.getRed(index2),
+  				frontPanel.getGreen(index2),
+  				frontPanel.getBlue(index2));
+  		}
+  	}
+	int index = frontPanel.gridToIndex(0,0);
+	frontPanel.setIndex(index,0,0,((audioBins[10] + audioBins[11])/2) * 128);
+	index = frontPanel.gridToIndex(0,1);
+	frontPanel.setIndex(index,0,0,((audioBins[8] + audioBins[9])/2) * 128);
+
+	index = frontPanel.gridToIndex(0,2);
+	frontPanel.setIndex(index,0,((audioBins[6] + audioBins[7])/2) * 128,0);
+	index = frontPanel.gridToIndex(0,3);
+	frontPanel.setIndex(index,0,((audioBins[4] + audioBins[5])/2) * 128,0);
+
+	index = frontPanel.gridToIndex(0,4);
+	frontPanel.setIndex(index,((audioBins[2] + audioBins[3])/2) * 128,0,0);
+	index = frontPanel.gridToIndex(0,5);
+	frontPanel.setIndex(index,((audioBins[0] + audioBins[1])/2) * 128,0,0);
+  
+}
+
+//-------------------------------------------------------------------------------------------- Setup Start
 //Set up callbacks with soft timer
-Task audioThread(0, AudioSamplingLoop);
-Task drawingThread(33, drawLoop);
+Task audioThread(100, AudioSamplingLoop);
+Task drawingThread(0, drawLoop);
+//Task AnimationThread(10, AnimationLoop);
 
 void setup() {
 	// put your setup code here, to run once:
@@ -317,74 +352,20 @@ void setup() {
 	sampling_period_us = round(1000000*(1.0/SAMPLING_FREQUENCY));
 	pinMode(A3, INPUT);
 
+	//Animation Selection
+	//currentAnimationStartTime = millis();
+	currentAnimation = 0;
+
 	//Soft timers 'treads'
 	SoftTimer.add(&audioThread);
 	SoftTimer.add(&drawingThread);
+	//SoftTimer.add(&AnimationThread);
+
 
 }
-
-
-void loopz() {
-	//Audio Sampling
-	 for(int i=0; i<SAMPLES; i++) {
-        microseconds = micros();    //Overflows after around 70 minutes!
-        vReal[i] = analogRead(A3);
-        vImag[i] = 0;  
-
-
-        while(micros() < (microseconds + sampling_period_us)){ } //idle to make even sample
-    }
-	//FFT
-	FFT.Windowing(vReal, SAMPLES, FFT_WIN_TYP_HAMMING, FFT_FORWARD);
-    FFT.Compute(vReal, vImag, SAMPLES, FFT_FORWARD);
-    FFT.ComplexToMagnitude(vReal, vImag, SAMPLES);
-    peak = FFT.MajorPeak(vReal, SAMPLES, SAMPLING_FREQUENCY);
-
-    //Serial.println(debug);     //Print out what frequency is the most dominant.
-
-	// put your main code here, to run repeatedly:
-	debug = (peak / 2400.0) * 128;
-	//leftBoot.push(debug,0,0);
-	//rightBoot.push(0,debug,0);
-	eyes.purple();
-	int x = -1;
-	for(int i=1; i<(SAMPLES)/2; i++) {
-
-        /*View all these three lines in serial terminal to see which frequencies has which amplitudes*/
-        //Serial.print(peak);
-        //Serial.println((i * 1.0 * SAMPLING_FREQUENCY) / SAMPLES, 1);
-        //Serial.print(" ");
-        Serial.print(peak);     //Print out what frequency is the most dominant.
-        Serial.print("\t");
-        Serial.println(min(1000,vReal[i]));    //View only this line in serial plotter to visualize the bins
-
-        x++;
-        if(x < FRONT_WIDTH-1) {
-        	for(int y = FRONT_HEIGHT-1; y >= 0; y--) {
-    			int index = frontPanel.gridToIndex(x,FRONT_HEIGHT-y-1);
-        		if(min(1000,vReal[i])/1000.0 >= (double)y / (FRONT_HEIGHT-1)) {
-        			if(x > 2./3. * FRONT_WIDTH) {
-    					frontPanel.setIndex(index,0,0,128);
-        			} else if(x > 1./3. * FRONT_WIDTH) {
-    					frontPanel.setIndex(index,0,128,0);
-        			} else {
-    					frontPanel.setIndex(index,128,0,0);
-        			}
-        		} else {
-    				frontPanel.setIndex(index,0,0,0);
-        		}
-    		}
-        }
-        //Serial.println("\t");
-    }
-
-
-	// update LED Strips 
-	
-}
-int r, g, b;
+//-------------------------------------------------------------------------------------------- Setup end
 //-------------------------------------------------------------------------------------------- Debug
-void debug_rgb() {
+void debug_rgb(double r, double g, double b) {
   Serial.print(r); Serial.print(" - "); Serial.print(g); Serial.print(" - "); Serial.println(b);
 }
 void debug_xyi(int xx, int yy, int ii) {
