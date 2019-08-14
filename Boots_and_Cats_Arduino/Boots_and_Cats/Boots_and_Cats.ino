@@ -1,9 +1,8 @@
 
-#include <PciManager.h>
+//#include <PciManager.h>
 
-#include <SoftTimer.h>
+//#include <SoftTimer.h>
 
-#include <ArduinoTrace.h>
 
 
 #include <arduinoFFT.h>
@@ -189,12 +188,24 @@ int debug;
 //-------------------------------------------------------------------------------------------- Aduio sampling start
 double audioBins[12];
 bool hasProcessedAudioAtLeastOnce = false;
-void AudioSamplingLoop(Task* me) {
+void AudioSamplingLoop(){//Task* me) {
+  unsigned long StartTime = millis();
+  unsigned long CurrentTime = millis();
+  unsigned long ElapsedTime = CurrentTime - StartTime;
+  
 	for(int i=0; i<SAMPLES; i++) {
         microseconds = micros();    //Overflows after around 70 minutes!
         vReal[i] = analogRead(A3);
         vImag[i] = 0;  
-        while(micros() < (microseconds + sampling_period_us)){ } //idle to make even sample
+        while(micros() < (microseconds + sampling_period_us)){
+          /*
+          CurrentTime = millis();
+          ElapsedTime = CurrentTime - StartTime;
+          if(ElapsedTime > 100) {
+            StartTime = millis();
+            drawLoop();
+          }*/
+        } //idle to make even sample
     }
 
 	  FFT.Windowing(vReal, SAMPLES, FFT_WIN_TYP_HAMMING, FFT_FORWARD);
@@ -221,7 +232,7 @@ void AudioSamplingLoop(Task* me) {
 }
 //-------------------------------------------------------------------------------------------- Audio Sample Loop end
 //-------------------------------------------------------------------------------------------- Draw Loop start
-void drawLoop(Task* me) {  
+void drawLoop(){//Task* me) {  
   	for(int i = 0; i < max(leftBoot.total(),max(rightBoot.total(), frontPanel.total())); i++ ) {
 		uint32_t c;
 		//left boot
@@ -265,6 +276,7 @@ void drawLoop(Task* me) {
 	lbs.show();
 	rbs.show();
 	fps.show();
+ 
  AnimationLoop();
 }
 //-------------------------------------------------------------------------------------------- Draw Loop end
@@ -275,6 +287,7 @@ void AnimationLoop(){//Task* me) {
   if(hasProcessedAudioAtLeastOnce) {
     
     if(currentAnimation == 0) {
+      RainbowAnimation();
       RainbowAnimation();
     }
   }
@@ -300,7 +313,7 @@ void RainbowAnimation() {
   		((audioBins[8] + audioBins[9] + audioBins[10] + audioBins[11]) / 4.0) * 128
   		);
 
-  	for(int x = FRONT_WIDTH-1;  x > 1; x--) {
+  	for(int x = FRONT_WIDTH-1;  x > 0; x--) {
   		for(int y = 0; y < FRONT_HEIGHT; y++) {
   			int index = frontPanel.gridToIndex(x,y);
   			int index2 = frontPanel.gridToIndex(x-1,y);
@@ -329,8 +342,8 @@ void RainbowAnimation() {
 
 //-------------------------------------------------------------------------------------------- Setup Start
 //Set up callbacks with soft timer
-Task audioThread(100, AudioSamplingLoop);
-Task drawingThread(0, drawLoop);
+//Task audioThread(100, AudioSamplingLoop);
+//Task drawingThread(0, drawLoop);
 //Task AnimationThread(10, AnimationLoop);
 
 void setup() {
@@ -357,13 +370,15 @@ void setup() {
 	currentAnimation = 0;
 
 	//Soft timers 'treads'
-	SoftTimer.add(&audioThread);
-	SoftTimer.add(&drawingThread);
+	//SoftTimer.add(&audioThread);
+	//SoftTimer.add(&drawingThread);
 	//SoftTimer.add(&AnimationThread);
-
-
 }
 //-------------------------------------------------------------------------------------------- Setup end
+void loop() {
+  AudioSamplingLoop();
+  drawLoop();
+}
 //-------------------------------------------------------------------------------------------- Debug
 void debug_rgb(double r, double g, double b) {
   Serial.print(r); Serial.print(" - "); Serial.print(g); Serial.print(" - "); Serial.println(b);
