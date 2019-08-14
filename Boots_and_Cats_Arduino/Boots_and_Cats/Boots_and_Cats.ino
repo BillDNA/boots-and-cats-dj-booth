@@ -165,7 +165,7 @@ class LED {
 #define SAMPLES 256             //Must be a power of 2
 #define SAMPLING_FREQUENCY 4400 //Hz, must be less than 10000 due to ADC
 arduinoFFT FFT = arduinoFFT(); 
-unsigned int sampling_period_us;
+unsigned int sampling_period_us = round(1000000*(1.0/SAMPLING_FREQUENCY));
 unsigned long microseconds;
 double vReal[SAMPLES];
 double vImag[SAMPLES];
@@ -184,6 +184,120 @@ LED frontPanel = LED(6, 0, 258);
 CatEyes eyes = CatEyes();
 
 int debug;
+//Main Loops
+
+//Aduio sampling
+double audioBins[16];
+void AudioSamplingLoop(Task* me) {
+	for(int i=0; i<SAMPLES; i++) {
+        microseconds = micros();    //Overflows after around 70 minutes!
+        vReal[i] = analogRead(A3);
+        vImag[i] = 0;  
+        while(micros() < (microseconds + sampling_period_us)){ } //idle to make even sample
+    }
+
+	FFT.Windowing(vReal, SAMPLES, FFT_WIN_TYP_HAMMING, FFT_FORWARD);
+    FFT.Compute(vReal, vImag, SAMPLES, FFT_FORWARD);
+    FFT.ComplexToMagnitude(vReal, vImag, SAMPLES);
+    peak = FFT.MajorPeak(vReal, SAMPLES, SAMPLING_FREQUENCY);
+
+    int bin = -1;
+    for(int i = 1; i < (SAMPLES/2); i++) {
+      /*
+        Serial.print(peak);     //Print out what frequency is the most dominant.
+        Serial.print("\t");
+        Serial.print(min(1000,vReal[i]));    //View only this line in serial plotter to visualize the bins
+        Serial.print("\t");
+
+		unsigned long CurrentTime = millis();
+		unsigned long ElapsedTime = CurrentTime - StartTime;
+        Serial.print(ElapsedTime);
+        Serial.print("\t");
+        Serial.println(calctime);*/
+        if(i % 16 == 0) { bin++; }
+      audioBins[bin] = vReal[i]; //transphers bins to somthing we can refger back to  
+    }
+
+}
+void drawLoop(Task* me) {
+  int x = -1;
+  if(peak / 1000 > 0.66) {
+  	eyes.blue();
+  } else if(peak / 1000 > 0.33) {
+  	eyes.green();
+  } else {
+  	eyes.red();
+  }
+  for(int i=1; i<(SAMPLES)/2; i++) {
+
+        x++;
+        if(x < FRONT_WIDTH-1) {
+          	for(int y = FRONT_HEIGHT-1; y >= 0; y--) {
+	          	int index = frontPanel.gridToIndex(x,FRONT_HEIGHT-y-1);
+				if(min(1000,audioBins[i])/1000.0 >= (double)y / (FRONT_HEIGHT-1)) {
+					if(x > 2./3. * FRONT_WIDTH) {
+						frontPanel.setIndex(index,0,0,128);
+					} else if(x > 1./3. * FRONT_WIDTH) {
+						frontPanel.setIndex(index,0,128,0);
+					} else {
+						frontPanel.setIndex(index,128,0,0);
+					}
+				} else {
+					frontPanel.setIndex(index,0,0,0);
+				}
+			}
+        }
+	}
+  
+  	for(int i = 0; i < max(leftBoot.total(),max(rightBoot.total(), frontPanel.total())); i++ ) {
+		uint32_t c;
+		//left boot
+		if(i < leftBoot.total()) {
+		  if(i < leftBoot.zero()) {
+		    c = lbs.Color(0,0,0); //force the extra leds to black
+		  } else {
+		    c = lbs.Color(
+		      leftBoot.getRed(i),
+		      leftBoot.getGreen(i),
+		      leftBoot.getBlue(i)); //grab the correct color
+		  }
+		  lbs.setPixelColor(i,c); //set the color if we are in the bounds
+		}
+		//right boot
+		if(i < rightBoot.total()) {
+		  if(i < rightBoot.zero()) {
+		    c = rbs.Color(0,0,0); //force the extra leds to black
+		  } else {
+		    c = rbs.Color(
+		      rightBoot.getRed(i),
+		      rightBoot.getGreen(i),
+		      rightBoot.getBlue(i)); //grab the correct color
+		  }
+		  rbs.setPixelColor(i,c); //set the color if we are in the bounds
+		}
+		//front pannel
+		//right boot
+		if(i < frontPanel.total()) {
+		  if(i < frontPanel.zero()) {
+		    c = fps.Color(0,0,0); //force the extra leds to black
+		  } else {
+		    c = fps.Color(
+		      frontPanel.getRed(i),
+		      frontPanel.getGreen(i),
+		      frontPanel.getBlue(i)); //grab the correct color
+		  }
+		  fps.setPixelColor(i,c); //set the color if we are in the bounds
+		}
+	}
+  //now show the strips
+  lbs.show();
+  rbs.show();
+  fps.show();
+}
+//Set up callbacks with soft timer
+Task audioThread(0, AudioSamplingLoop);
+Task drawingThread(33, drawLoop);
+
 void setup() {
 	// put your setup code here, to run once:
 	Serial.begin(115200);
@@ -191,7 +305,7 @@ void setup() {
 	pinMode(11, OUTPUT);
 	pinMode(10, OUTPUT);
 	pinMode(9, OUTPUT);
-	//now shart the strips
+	//now shart the strip
 	lbs.begin();
 	rbs.begin();
 	fps.begin();
@@ -203,8 +317,12 @@ void setup() {
 	sampling_period_us = round(1000000*(1.0/SAMPLING_FREQUENCY));
 	pinMode(A3, INPUT);
 
+	//Soft timers 'treads'
+	SoftTimer.add(&audioThread);
+	SoftTimer.add(&drawingThread);
 
 }
+
 
 void loopz() {
 	//Audio Sampling
@@ -262,50 +380,7 @@ void loopz() {
 
 
 	// update LED Strips 
-	for(int i = 0; i < max(leftBoot.total(),max(rightBoot.total(), frontPanel.total())); i++ ) {
-		uint32_t c;
-		//left boot
-		if(i < leftBoot.total()) {
-			if(i < leftBoot.zero()) {
-				c = lbs.Color(0,0,0); //force the extra leds to black
-			} else {
-				c = lbs.Color(
-					leftBoot.getRed(i),
-					leftBoot.getGreen(i),
-					leftBoot.getBlue(i)); //grab the correct color
-			}
-			lbs.setPixelColor(i,c); //set the color if we are in the bounds
-		}
-		//right boot
-		if(i < rightBoot.total()) {
-			if(i < rightBoot.zero()) {
-				c = rbs.Color(0,0,0); //force the extra leds to black
-			} else {
-				c = rbs.Color(
-					rightBoot.getRed(i),
-					rightBoot.getGreen(i),
-					rightBoot.getBlue(i)); //grab the correct color
-			}
-			rbs.setPixelColor(i,c); //set the color if we are in the bounds
-		}
-		//front pannel
-		//right boot
-		if(i < frontPanel.total()) {
-			if(i < frontPanel.zero()) {
-				c = fps.Color(0,0,0); //force the extra leds to black
-			} else {
-				c = fps.Color(
-					frontPanel.getRed(i),
-					frontPanel.getGreen(i),
-					frontPanel.getBlue(i)); //grab the correct color
-			}
-			fps.setPixelColor(i,c); //set the color if we are in the bounds
-		}
-	}
-	//now show the strips
-	lbs.show();
-	rbs.show();
-	fps.show();
+	
 }
 int r, g, b;
 //-------------------------------------------------------------------------------------------- Debug
