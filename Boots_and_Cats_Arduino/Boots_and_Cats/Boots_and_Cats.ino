@@ -304,14 +304,16 @@ void drawLoop(){//Task* me) {
 }
 //-------------------------------------------------------------------------------------------- Draw Loop end
 //-------------------------------------------------------------------------------------------- Animation Managment Loop Start
-#define TOTAL_ANIMATIONS 3
+#define TOTAL_ANIMATIONS 5
 unsigned long animationSettings[][4] = {
 	//id number, run time short, runtime long, chance to happen
 	{0, 10000, 15000, 33}, //Rainbow 
 	{1, 60000, 120000, 60}, //pulse
 	{2, 30000, 45000, 40}, //pong 
+  {3, 30000, 45000, 40}, //Boots and cats 
+  {4, 60000, 120000, 40}, //Cheveron
 };
-int forcedAnimation = 3;
+int forcedAnimation = -1;
 void AnimationLoop(){//Task* me) {
 	if(currentAnimation == 0) {
 		RainbowAnimation();
@@ -321,6 +323,8 @@ void AnimationLoop(){//Task* me) {
 		PongAnimation();
 	} else if(currentAnimation == 3) {
 		BootsAndCatsAnimation();
+	} else if(currentAnimation == 4) {
+		CheveronAnimation();
 	}
 
 	if(forcedAnimation == -1) {
@@ -336,13 +340,49 @@ void AnimationLoop(){//Task* me) {
 				memcpy(animationSetting,animationSettings[selected],sizeof(animationSettings[selected]));
 			}*/
 			currentAnimation = animationSetting[0];
-			currentAnimationTimeLimit = 1000;//random(animationSetting[1], animationSetting[2]);
+			currentAnimationTimeLimit = 10000;//random(animationSetting[1], animationSetting[2]);
 			currentAnimationStartTime = millis();
 			animationFrame = 0;
 		}
 	} else {currentAnimation = forcedAnimation;}
 }
 //-------------------------------------------------------------------------------------------- Animation Managment Loop End
+void CheveronAnimation() {
+	int spacing = 7;
+	if(animationFrame == 0) {
+		frontPanel.flash(0,0,0);
+		leftBoot.flash(0,0,0);
+		rightBoot.flash(0,0,0);
+		eyes.white();
+	}
+	r = 0; g = 0; b = 0;
+	int frame = animationFrame % 21;
+	if(frame == 0) {
+    dir = dir * -1;
+		r = 128; g = 0; b = 0;
+	} else if(frame == 1) {
+		r = 128; g = 64; b = 0;
+	} else if(frame == 2) {
+		r = 128; g = 128; b = 0;
+	} else if(frame == 3) {
+		r = 0; g = 128; b = 0;
+	} else if(frame == 4) {
+		r = 0; g = 0; b = 128;
+	} else if(frame == 5) {
+		r = 37; g = 0; b = 65;
+	} else if(frame == 6) {
+		r = 74; g = 0; b = 105;
+	}
+  if(animationFrame % 100 < 50 || animationFrame < 108) {
+  	leftBoot.pull( r,g,b);
+  	rightBoot.pull( r,g,b);
+  } else {
+    leftBoot.push( r,g,b);
+    rightBoot.push( r,g,b);
+  }
+	frontPanel.pull( r,g,b);
+	animationFrame++;
+}
 //-------------------------------------------------------------------------------------------- Boot And Cats Animation start
 void BootsAndCatsAnimation() {
 	int totalFramesInAnimation = 16;
@@ -507,7 +547,7 @@ void PongAnimation() {
 		}
 	}
 	double t = animationStep / totalFramesInAnimation;
-	if(dir == -1) {
+	if(dir < 0) {
 		leftBoot.flash(r*128,g*128,b*128);
 		rightBoot.flash(lr*128,lg*128,lb*128);
 	} else {
