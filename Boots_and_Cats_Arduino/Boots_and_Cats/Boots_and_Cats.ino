@@ -1,16 +1,20 @@
-
-//#include <PciManager.h>
-
-//#include <SoftTimer.h>
-
-
+bool UseAudio = false;
 
 #include <arduinoFFT.h>
 #ifdef __AVR__
 #include <avr/power.h> // Required for 16 MHz Adafruit Trinket
 #endif
 #include <Adafruit_NeoPixel.h>
-
+//
+//----------------------------------------------------------------------------------- Globals
+int r,g,b; //CURRENT RGB
+int lr,lg,lb; //last used rgbs
+int llr,llg,llb; //last last used rgbs
+int dir = 1;
+int currentAnimation = 1;
+unsigned long currentAnimationTimeLimit = 10000;
+unsigned long currentAnimationStartTime;
+unsigned long animationFrame = 0;
 //----------------------------------------------------------------------------------- Classes
 //----------------------------------------------------------------------------------- Cat Eyes Start
 #define EYE_RED 11
@@ -18,69 +22,75 @@
 #define EYE_BLUE 9
 class CatEyes {
   private: 
-    bool _r;
-    bool _g;
-    bool _b;
+	bool _r;
+	bool _g;
+	bool _b;
 
-    void _update() {
-      digitalWrite(11, !this->_r);
-      digitalWrite(10, !this->_g);
-      digitalWrite(9, !this->_b);
-    }
+	void _update() {
+	  digitalWrite(11, !this->_r);
+	  digitalWrite(10, !this->_g);
+	  digitalWrite(9, !this->_b);
+	}
   public:
-    CatEyes() {
-      this->_r = false;
-      this->_g = false;
-      this->_b = false;
-    }
-    void red() {
-      this->_r = true;
-      this->_g = false;
-      this->_b = false;
-      this->_update();
-    }
-    void green() {
-      this->_r = false;
-      this->_g = true;
-      this->_b = false;
-      this->_update();
-    }
-    void blue() {
-      this->_r = false;
-      this->_g = false;
-      this->_b = true;
-      this->_update();
-    }
-    void cyan() {
-      this->_r = false;
-      this->_g = true;
-      this->_b = true;
-      this->_update();
-    }
-    void yellow() {
-      this->_r = true;
-      this->_g = true;
-      this->_b = false;
-      this->_update();
-    }
-    void purple() {
-      this->_r = true;
-      this->_g = false;
-      this->_b = true;
-      this->_update();
-    }
-    void white() {
-      this->_r = true;
-      this->_g = true;
-      this->_b = true;
-      this->_update();
-    }
-    void black() {
-      this->_r = false;
-      this->_g = false;
-      this->_b = false;
-      this->_update();
-    }
+	CatEyes() {
+	  this->_r = false;
+	  this->_g = false;
+	  this->_b = false;
+	}
+	void red() {
+	  this->_r = true;
+	  this->_g = false;
+	  this->_b = false;
+	  this->_update();
+	}
+	void green() {
+	  this->_r = false;
+	  this->_g = true;
+	  this->_b = false;
+	  this->_update();
+	}
+	void blue() {
+	  this->_r = false;
+	  this->_g = false;
+	  this->_b = true;
+	  this->_update();
+	}
+	void cyan() {
+	  this->_r = false;
+	  this->_g = true;
+	  this->_b = true;
+	  this->_update();
+	}
+	void yellow() {
+	  this->_r = true;
+	  this->_g = true;
+	  this->_b = false;
+	  this->_update();
+	}
+	void purple() {
+	  this->_r = true;
+	  this->_g = false;
+	  this->_b = true;
+	  this->_update();
+	}
+	void white() {
+	  this->_r = true;
+	  this->_g = true;
+	  this->_b = true;
+	  this->_update();
+	}
+	void black() {
+	  this->_r = false;
+	  this->_g = false;
+	  this->_b = false;
+	  this->_update();
+	}
+	void setEyeColor(int red, int green, int blue) {
+	  this->_r = red!=0;
+	  this->_g = green!=0;
+	  this->_b = blue!=0;
+	  this->_update();
+	}
 };
 //----------------------------------------------------------------------------------- Cat Eyes End
 //----------------------------------------------------------------------------------- LED Start
@@ -102,12 +112,12 @@ class LED {
 			this->_green = new uint8_t[total] {0};
 			this->_blue = new uint8_t[total] {0};
 		}
-    int total() {
-      return this->_total;
-    }
-    int zero() {
-      return this->_zero;
-    }
+	int total() {
+	  return this->_total;
+	}
+	int zero() {
+	  return this->_zero;
+	}
 	uint8_t getRed(int i) {
 		return this->_red[i];
 	}
@@ -122,10 +132,9 @@ class LED {
 		this->_red[i] = (int)round(r);
 		this->_green[i] = (int)round(g);
 		this->_blue[i] = (int)round(b);
-    if(i < 0 || i > this->_total) {
-        Serial.println("BROKEN INDEX");
-    }
-    //Serial.print(r); Serial.print(" vs "); Serial.print((int)round(r)); Serial.print(" vs "); Serial.println(this->_red[i] );
+		if(i < 0 || i > this->_total) {
+			Serial.println("BROKEN INDEX");
+		}
 	}
 	void push(double r, double g, double b) {
 		for(int i = this->_total - 1; i > this->_zero; i--) {
@@ -133,7 +142,20 @@ class LED {
 			this->_green[i] = this->_green[i-1];
 			this->_blue[i] = this->_blue[i-1];
 		}
-   this->setIndex(this->_zero,r,g,b);
+		this->setIndex(this->_zero,r,g,b);
+	}
+	void pull(double r, double g, double b) {
+		for(int i = 0; i < this->_total-1; i++) {
+			this->_red[i] = this->_red[i+1];
+			this->_green[i] = this->_green[i+1];
+			this->_blue[i] = this->_blue[i+1];
+		}
+		this->setIndex(this->_total-1,r,g,b);
+	}
+	void flash(double r, double g, double b) {
+		for(int i = 0; i < this->_total; i++) {
+			this->setIndex(i,r,g,b);
+		}
 	}
 	int gridToIndex(int x, int y) {
 		int m[43] = {
@@ -160,6 +182,7 @@ class LED {
 #define COUNT_FRONT 258
 #define FRONT_HEIGHT 6
 #define FRONT_WIDTH 43
+#define FRONT_MIDDLE 22
 #define FRONT_WIDTH_ODD 22
 #define FRONT_WIDTH_EVEN 21
 //Audio setup
@@ -186,7 +209,7 @@ CatEyes eyes = CatEyes();
 
 int debug;
 //-------------------------------------------------------------------------------------------- Aduio sampling start
-double audioBins[12];
+double audioBins[12] = {0,0,0,0,0,0,0,0,0,0,0,0};
 bool hasProcessedAudioAtLeastOnce = false;
 void AudioSamplingLoop(){//Task* me) {
   unsigned long StartTime = millis();
@@ -194,80 +217,80 @@ void AudioSamplingLoop(){//Task* me) {
   unsigned long ElapsedTime = CurrentTime - StartTime;
   
 	for(int i=0; i<SAMPLES; i++) {
-        microseconds = micros();    //Overflows after around 70 minutes!
-        vReal[i] = analogRead(A3);
-        vImag[i] = 0;  
-        while(micros() < (microseconds + sampling_period_us)){
-          /*
-          CurrentTime = millis();
-          ElapsedTime = CurrentTime - StartTime;
-          if(ElapsedTime > 100) {
-            StartTime = millis();
-            drawLoop();
-          }*/
-        } //idle to make even sample
-    }
+		microseconds = micros();    //Overflows after around 70 minutes!
+		vReal[i] = analogRead(A3);
+		vImag[i] = 0;  
+		while(micros() < (microseconds + sampling_period_us)){
+		  /*
+		  CurrentTime = millis();
+		  ElapsedTime = CurrentTime - StartTime;
+		  if(ElapsedTime > 100) {
+			StartTime = millis();
+			drawLoop();
+		  }*/
+		} //idle to make even sample
+	}
 
-	  FFT.Windowing(vReal, SAMPLES, FFT_WIN_TYP_HAMMING, FFT_FORWARD);
-    FFT.Compute(vReal, vImag, SAMPLES, FFT_FORWARD);
-    FFT.ComplexToMagnitude(vReal, vImag, SAMPLES);
-    peak = FFT.MajorPeak(vReal, SAMPLES, SAMPLING_FREQUENCY);
+	FFT.Windowing(vReal, SAMPLES, FFT_WIN_TYP_HAMMING, FFT_FORWARD);
+	FFT.Compute(vReal, vImag, SAMPLES, FFT_FORWARD);
+	FFT.ComplexToMagnitude(vReal, vImag, SAMPLES);
+	peak = FFT.MajorPeak(vReal, SAMPLES, SAMPLING_FREQUENCY);
 
-    int bin = 0;
-    double maxBin = 0;
-    double tempAudioBins[12] = {0,0,0,0,0,0,0,0,0,0,0,0};
-    for(int i = 1; i < (SAMPLES/2); i++) {
-        if(i / (SAMPLES/2.0)  >= bin / 11.0) { 
-        	bin++; 
-        }
-      	tempAudioBins[bin] += vReal[i]; //transphers bins to somthing we can refger back to 
-      	maxBin = max(maxBin, tempAudioBins[bin]);
-    }
-    //now normalize the bins
-    for(bin = 0; bin < 12; bin++) {
-    	audioBins[bin] = tempAudioBins[bin] / maxBin;
-     //Serial.println(audioBins[bin]);
-    }
-  hasProcessedAudioAtLeastOnce = true;
+	int bin = 0;
+	double maxBin = 0;
+	double tempAudioBins[12] = {0,0,0,0,0,0,0,0,0,0,0,0};
+	for(int i = 1; i < (SAMPLES/2); i++) {
+		if(i / (SAMPLES/2.0)  >= bin / 11.0) { 
+			bin++; 
+		}
+		tempAudioBins[bin] += vReal[i]; //transphers bins to somthing we can refger back to 
+		maxBin = max(maxBin, tempAudioBins[bin]);
+	}
+	//now normalize the bins
+	for(bin = 0; bin < 12; bin++) {
+		audioBins[bin] = tempAudioBins[bin] / maxBin;
+	 //Serial.println(audioBins[bin]);
+	}
+  	hasProcessedAudioAtLeastOnce = true;
 }
 //-------------------------------------------------------------------------------------------- Audio Sample Loop end
 //-------------------------------------------------------------------------------------------- Draw Loop start
 void drawLoop(){//Task* me) {  
-  	for(int i = 0; i < max(leftBoot.total(),max(rightBoot.total(), frontPanel.total())); i++ ) {
+	for(int i = 0; i < max(leftBoot.total(),max(rightBoot.total(), frontPanel.total())); i++ ) {
 		uint32_t c;
 		//left boot
 		if(i < leftBoot.total()) {
 		  if(i < leftBoot.zero()) {
-		    c = lbs.Color(0,0,0); //force the extra leds to black
+			c = lbs.Color(0,0,0); //force the extra leds to black
 		  } else {
-		    c = lbs.Color(
-		      leftBoot.getRed(i),
-		      leftBoot.getGreen(i),
-		      leftBoot.getBlue(i)); //grab the correct color
+			c = lbs.Color(
+			  leftBoot.getRed(i),
+			  leftBoot.getGreen(i),
+			  leftBoot.getBlue(i)); //grab the correct color
 		  }
 		  lbs.setPixelColor(i,c); //set the color if we are in the bounds
 		}
 		//right boot
 		if(i < rightBoot.total()) {
 		  if(i < rightBoot.zero()) {
-		    c = rbs.Color(0,0,0); //force the extra leds to black
+			c = rbs.Color(0,0,0); //force the extra leds to black
 		  } else {
-		    c = rbs.Color(
-		      rightBoot.getRed(i),
-		      rightBoot.getGreen(i),
-		      rightBoot.getBlue(i)); //grab the correct color
+			c = rbs.Color(
+			  rightBoot.getRed(i),
+			  rightBoot.getGreen(i),
+			  rightBoot.getBlue(i)); //grab the correct color
 		  }
 		  rbs.setPixelColor(i,c); //set the color if we are in the bounds
 		}
 		//front pannel
 		if(i < frontPanel.total()) {
 		  if(i < frontPanel.zero()) {
-		    c = fps.Color(0,0,0); //force the extra leds to black
+			c = fps.Color(0,0,0); //force the extra leds to black
 		  } else {
-		    c = fps.Color(
-		      frontPanel.getRed(i),
-		      frontPanel.getGreen(i),
-		      frontPanel.getBlue(i)); //grab the correct color
+			c = fps.Color(
+			  frontPanel.getRed(i),
+			  frontPanel.getGreen(i),
+			  frontPanel.getBlue(i)); //grab the correct color
 		  }
 		  fps.setPixelColor(i,c); //set the color if we are in the bounds
 		}
@@ -281,62 +304,223 @@ void drawLoop(){//Task* me) {
 }
 //-------------------------------------------------------------------------------------------- Draw Loop end
 //-------------------------------------------------------------------------------------------- Animation Managment Loop Start
-int currentAnimation = 0;
-unsigned long currentAnimationStartTime;
+#define TOTAL_ANIMATIONS 3
+unsigned long animationSettings[][4] = {
+	//id number, run time short, runtime long, chance to happen
+	{0, 10000, 15000, 33}, //Rainbow 
+	{1, 60000, 120000, 60}, //pulse
+	{2, 30000, 45000, 40}, //pong 
+};
+int forcedAnimation = 3;
 void AnimationLoop(){//Task* me) {
-  if(hasProcessedAudioAtLeastOnce) {
-    
-    if(currentAnimation == 0) {
-      RainbowAnimation();
-      RainbowAnimation();
-    }
-  }
+	if(currentAnimation == 0) {
+		RainbowAnimation();
+	} else if(currentAnimation == 1) {
+		PulseAnimation();
+	} else if(currentAnimation == 2) {
+		PongAnimation();
+	} else if(currentAnimation == 3) {
+		BootsAndCatsAnimation();
+	}
+
+	if(forcedAnimation == -1) {
+		unsigned long CurrentTime = millis();
+		unsigned long ElapsedTime = CurrentTime - currentAnimationStartTime;
+		if(ElapsedTime > currentAnimationTimeLimit) {
+			shuffleAnimations();
+			int selected = 0;
+			unsigned long animationSetting[4];
+	    	memcpy(animationSetting,animationSettings[selected],sizeof(animationSettings[selected]));
+			/*while(selected < TOTAL_ANIMATIONS && animationSetting[3] < (int)random(0, 100)) {
+				selected++;
+				memcpy(animationSetting,animationSettings[selected],sizeof(animationSettings[selected]));
+			}*/
+			currentAnimation = animationSetting[0];
+			currentAnimationTimeLimit = 1000;//random(animationSetting[1], animationSetting[2]);
+			currentAnimationStartTime = millis();
+			animationFrame = 0;
+		}
+	} else {currentAnimation = forcedAnimation;}
 }
 //-------------------------------------------------------------------------------------------- Animation Managment Loop End
+//-------------------------------------------------------------------------------------------- Boot And Cats Animation start
+void BootsAndCatsAnimation() {
+	int totalFramesInAnimation = 16;
+	int animationStep = animationFrame % totalFramesInAnimation;
+	if(animationStep == 0) {
+		r = 0; g = 0; b = 0;
+		while (r + g + b == 0 || r + g + b == 3) {
+		  r = (int)random(0, 2);
+		  g = (int)random(0, 2);
+		  b = (int)random(0, 2);
+		}
+    dir = (dir + 1) % 3;
+		eyes.setEyeColor(r,g,b);
+	}
+	int boots[6][43] = {
+		{1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1},
+		{0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 1, 1, 0, 1, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0},
+		{0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0},
+		{0, 0, 0, 1, 0, 1, 0, 1, 1, 0, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 1, 0, 0}
+	};
+	int n[6][43] = {
+		{1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1},
+		{0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1, 1, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+	};
+	int cats[6][43] = {
+		{1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1},
+		{0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 1, 0, 0, 0, 0}
+	};
+	double offR = abs(1-r) * (double)(animationStep / (double)totalFramesInAnimation) * 128;
+	double offG = abs(1-g) * (double)(animationStep / (double)totalFramesInAnimation) * 128;
+	double offB = abs(1-b) * (double)(animationStep / (double)totalFramesInAnimation) * 128;
 
+	for(int y = 0; y < FRONT_HEIGHT; y++) {
+		for(int x = 0; x < FRONT_WIDTH; x++) {
+			int index = frontPanel.gridToIndex(x,y);
+      		int temp = 0;
+			if(dir == 0) {
+        		temp = boots[y][x];       
+			} else if(dir == 1) {
+				temp = n[y][x];
+			} else if(dir == 2) {
+				temp = cats[y][x];
+			}
+     		if(temp == 1) {
+      			frontPanel.setIndex(index,r*128,g*128,b*128);
+     		} else {
+     			frontPanel.setIndex(index,offR/8,offG/8,offB/8);
+     		}
+		}
+	}
 
+	leftBoot.flash(offR,offG,offB);
+	rightBoot.flash(offR, offG, offB);
+	animationFrame++;
+}
+//-------------------------------------------------------------------------------------------- Boot And Cats  Animation End
 //-------------------------------------------------------------------------------------------- Rainbow Chase Animation start
 void RainbowAnimation() {
-  int x = -1;
-  if(peak / 1000 > 0.66) {
-  	eyes.blue();
-  } else if(peak / 1000 > 0.33) {
-  	eyes.green();
-  } else {
-  	eyes.red();
-  }
-  rightBoot.push(128,0,0);
-  
-  	leftBoot.push(
-  		((audioBins[0] + audioBins[1] + audioBins[2 ] + audioBins[3 ]) / 4.0) * 128,
-  		((audioBins[4] + audioBins[5] + audioBins[6 ] + audioBins[7 ]) / 4.0) * 128,
-  		((audioBins[8] + audioBins[9] + audioBins[10] + audioBins[11]) / 4.0) * 128
-  		);
+	if(animationFrame % 8 == 0) {
+		r = 0; g = 0; b =0;
+		while (r + g + b == 0) {
+		  r = (int)random(0, 2);
+		  g = (int)random(0, 2);
+		  b = (int)random(0, 2);
+		}
+		eyes.setEyeColor(r,g,b);
+	}
+	leftBoot.pull(r*128, g*128, b*128);
+	rightBoot.pull(r*128, g*128, b*128);
+	frontPanel.push(r*128, g*128, b*128);
+	animationFrame++;
+	
+}
+//-------------------------------------------------------------------------------------------- Rainbow Chase Animation End
+//-------------------------------------------------------------------------------------------- Pulse Animation start
+void PulseAnimation() {
+	int totalFramesInAnimation = 22;
+	int animationStep = animationFrame % totalFramesInAnimation;
+	if(animationStep == 0) {
+		lr = r; lg = g; lb = b;
+		r = 0; g = 0; b =0;
+		while (r + g + b == 0) {
+		  r = (int)random(0, 2);
+		  g = (int)random(0, 2);
+		  b = (int)random(0, 2);
+		}
+		eyes.setEyeColor(r,g,b);
+	}
+	for(int y = 0; y < FRONT_HEIGHT; y++) { 
+		int index = frontPanel.gridToIndex(FRONT_MIDDLE-1,y);
 
-  	for(int x = FRONT_WIDTH-1;  x > 0; x--) {
-  		for(int y = 0; y < FRONT_HEIGHT; y++) {
-  			int index = frontPanel.gridToIndex(x,y);
-  			int index2 = frontPanel.gridToIndex(x-1,y);
-  			frontPanel.setIndex(index,
-  				frontPanel.getRed(index2),
-  				frontPanel.getGreen(index2),
-  				frontPanel.getBlue(index2));
-  		}
-  	}
-	int index = frontPanel.gridToIndex(0,0);
-	frontPanel.setIndex(index,0,0,((audioBins[10] + audioBins[11])/2) * 128);
-	index = frontPanel.gridToIndex(0,1);
-	frontPanel.setIndex(index,0,0,((audioBins[8] + audioBins[9])/2) * 128);
+		frontPanel.setIndex(index, r*128,g*128,b*128);
+	}
+	for(int y = 0; y < FRONT_HEIGHT; y++) {
+		for(int x = FRONT_MIDDLE;  x < FRONT_MIDDLE + animationStep; x++) {
+			int index = frontPanel.gridToIndex(x,y);
+			double t = 132.0 - (x + animationStep) * 6; 
+			frontPanel.setIndex(index, t*r,t*g,t*b);
+			index = frontPanel.gridToIndex(FRONT_WIDTH-1-x,y);
+			frontPanel.setIndex(index, t*r,t*g,t*b);
+		}
+	}
+	double t = animationStep / 22.0;
+	leftBoot.flash(
+		(r * t + lr * (1-t)) *128, 
+		(g * t + lg * (1-t)) *128, 
+		(b * t + lb * (1-t)) *128
+		);
+	rightBoot.flash(
+		(r * t + lr * (1-t)) *128, 
+		(g * t + lg * (1-t)) *128, 
+		(b * t + lb * (1-t)) *128
+		);
+  animationFrame++;
+	
+}
+//-------------------------------------------------------------------------------------------- Pulse Animation End
+//-------------------------------------------------------------------------------------------- Pong Animation start
+void PongAnimation() {
+	int totalFramesInAnimation = FRONT_WIDTH-1;
+	int animationStep = animationFrame % totalFramesInAnimation;
+	if(animationStep == 0) {
+    llr = lr; llg = lg; llb = lb;
+		dir = -1 * dir;
+		lr = r; lg = g; lb = b;
+		r = 0; g = 0; b =0;
+		while (
+			(r + g + b == 0) ||
+     (r == lr && g == lg && b == lb)||
+      (r == llr && g == llg && b == llb)
+			) {
+		  r = (int)random(0, 2);
+		  g = (int)random(0, 2);
+		  b = (int)random(0, 2);
+		}
+		eyes.setEyeColor(r,g,b);
+	}
+	double transition = animationStep / (double)totalFramesInAnimation;
+	double dropoff[8] = {0,32,56,74,87,98,105,111};
+	for(int y = 0; y < FRONT_HEIGHT; y++) {
+		for(int x = 0;  x < FRONT_WIDTH; x++) {
+			int distance = abs(x - animationStep);
+			if(dir == -1) { distance = abs(FRONT_WIDTH-x-animationStep);}
+			double t = 128-dropoff[distance]; 			
+			if(distance > 7) {t = 0;}
+			int index = frontPanel.gridToIndex(x,y);
+			frontPanel.setIndex(index, 
+				t * (lr * transition + r * (1-transition)),
+				t * (lg * transition + g * (1-transition)),
+				t * (lb * transition + b * (1-transition))
+				);
+		}
+	}
+	double t = animationStep / totalFramesInAnimation;
+	if(dir == -1) {
+		leftBoot.flash(r*128,g*128,b*128);
+		rightBoot.flash(lr*128,lg*128,lb*128);
+	} else {
+		rightBoot.flash(r*128,g*128,b*128);
+		leftBoot.flash(lr*128,lg*128,lb*128);
 
-	index = frontPanel.gridToIndex(0,2);
-	frontPanel.setIndex(index,0,((audioBins[6] + audioBins[7])/2) * 128,0);
-	index = frontPanel.gridToIndex(0,3);
-	frontPanel.setIndex(index,0,((audioBins[4] + audioBins[5])/2) * 128,0);
-
-	index = frontPanel.gridToIndex(0,4);
-	frontPanel.setIndex(index,((audioBins[2] + audioBins[3])/2) * 128,0,0);
-	index = frontPanel.gridToIndex(0,5);
-	frontPanel.setIndex(index,((audioBins[0] + audioBins[1])/2) * 128,0,0);
+	}
+	animationFrame+=6;
+	
+}
+//-------------------------------------------------------------------------------------------- Pong Animation End
+//-------------------------------------------------------------------------------------------- Debug Animation start
+void DegubAnimation() {
   
 }
 
@@ -365,9 +549,11 @@ void setup() {
 	sampling_period_us = round(1000000*(1.0/SAMPLING_FREQUENCY));
 	pinMode(A3, INPUT);
 
+
+	currentAnimationStartTime = millis();
 	//Animation Selection
 	//currentAnimationStartTime = millis();
-	currentAnimation = 0;
+	//currentAnimation = 0;
 
 	//Soft timers 'treads'
 	//SoftTimer.add(&audioThread);
@@ -376,8 +562,18 @@ void setup() {
 }
 //-------------------------------------------------------------------------------------------- Setup end
 void loop() {
-  AudioSamplingLoop();
+  if(UseAudio) {AudioSamplingLoop();}
   drawLoop();
+}
+//-------------------------------------------------------------------------------------------- Helpers
+void shuffleAnimations() {
+	unsigned long animationSetting[4];
+	for(int i = 0; i < TOTAL_ANIMATIONS; i++) {
+		int j = (int) random(0, TOTAL_ANIMATIONS);
+		memcpy(animationSetting,animationSettings[i],sizeof(animationSettings[i]));
+		memcpy(animationSettings[i],animationSettings[j],sizeof(animationSettings[i]));
+		memcpy(animationSettings[j],animationSetting,sizeof(animationSettings[i]));
+	}
 }
 //-------------------------------------------------------------------------------------------- Debug
 void debug_rgb(double r, double g, double b) {
