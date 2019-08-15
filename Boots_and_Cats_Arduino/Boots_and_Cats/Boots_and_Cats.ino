@@ -310,7 +310,7 @@ unsigned long animationSettings[][4] = {
 	{0, 10000, 15000, 33}, //Rainbow 
 	{1, 60000, 120000, 60}, //pulse
 	{2, 30000, 45000, 40}, //pong 
-  {3, 30000, 45000, 40}, //Boots and cats 
+  {3, 45000, 60000, 40}, //Boots and cats 
   {4, 60000, 120000, 40}, //Cheveron
 };
 int forcedAnimation = -1;
@@ -340,7 +340,7 @@ void AnimationLoop(){//Task* me) {
 				memcpy(animationSetting,animationSettings[selected],sizeof(animationSettings[selected]));
 			}*/
 			currentAnimation = animationSetting[0];
-			currentAnimationTimeLimit = 10000;//random(animationSetting[1], animationSetting[2]);
+			currentAnimationTimeLimit = random(animationSetting[1], animationSetting[2]);
 			currentAnimationStartTime = millis();
 			animationFrame = 0;
 		}
@@ -462,7 +462,7 @@ void RainbowAnimation() {
 	}
 	leftBoot.pull(r*128, g*128, b*128);
 	rightBoot.pull(r*128, g*128, b*128);
-	frontPanel.push(r*128, g*128, b*128);
+	frontPanel.pull(r*128, g*128, b*128);
 	animationFrame++;
 	
 }
@@ -512,6 +512,7 @@ void PulseAnimation() {
 //-------------------------------------------------------------------------------------------- Pulse Animation End
 //-------------------------------------------------------------------------------------------- Pong Animation start
 void PongAnimation() {
+  if(animationFrame == 0) {dir = 1;}
 	int totalFramesInAnimation = FRONT_WIDTH-1;
 	int animationStep = animationFrame % totalFramesInAnimation;
 	if(animationStep == 0) {
