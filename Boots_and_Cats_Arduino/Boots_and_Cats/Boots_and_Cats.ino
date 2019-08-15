@@ -313,8 +313,27 @@ unsigned long animationSettings[][4] = {
   {3, 45000, 60000, 40}, //Boots and cats 
   {4, 60000, 120000, 40}, //Cheveron
 };
-int forcedAnimation = -1;
+int forcedAnimation = 5;
 void AnimationLoop(){//Task* me) {
+  if(forcedAnimation == -1) {
+    unsigned long CurrentTime = millis();
+    unsigned long ElapsedTime = CurrentTime - currentAnimationStartTime;
+    if(ElapsedTime > currentAnimationTimeLimit) {
+      shuffleAnimations();
+      int selected = 0;
+      unsigned long animationSetting[4];
+        memcpy(animationSetting,animationSettings[selected],sizeof(animationSettings[selected]));
+      /*while(selected < TOTAL_ANIMATIONS && animationSetting[3] < (int)random(0, 100)) {
+        selected++;
+        memcpy(animationSetting,animationSettings[selected],sizeof(animationSettings[selected]));
+      }*/
+      currentAnimation = animationSetting[0];
+      currentAnimationTimeLimit = random(animationSetting[1], animationSetting[2]);
+      currentAnimationStartTime = millis();
+      animationFrame = 0;
+    }
+  } else {currentAnimation = forcedAnimation;}
+  
 	if(currentAnimation == 0) {
 		RainbowAnimation();
 	} else if(currentAnimation == 1) {
@@ -325,28 +344,62 @@ void AnimationLoop(){//Task* me) {
 		BootsAndCatsAnimation();
 	} else if(currentAnimation == 4) {
 		CheveronAnimation();
+	}else if(currentAnimation == 5) {
+		WaveAnimation();
 	}
 
-	if(forcedAnimation == -1) {
-		unsigned long CurrentTime = millis();
-		unsigned long ElapsedTime = CurrentTime - currentAnimationStartTime;
-		if(ElapsedTime > currentAnimationTimeLimit) {
-			shuffleAnimations();
-			int selected = 0;
-			unsigned long animationSetting[4];
-	    	memcpy(animationSetting,animationSettings[selected],sizeof(animationSettings[selected]));
-			/*while(selected < TOTAL_ANIMATIONS && animationSetting[3] < (int)random(0, 100)) {
-				selected++;
-				memcpy(animationSetting,animationSettings[selected],sizeof(animationSettings[selected]));
-			}*/
-			currentAnimation = animationSetting[0];
-			currentAnimationTimeLimit = random(animationSetting[1], animationSetting[2]);
-			currentAnimationStartTime = millis();
-			animationFrame = 0;
-		}
-	} else {currentAnimation = forcedAnimation;}
+	
 }
 //-------------------------------------------------------------------------------------------- Animation Managment Loop End
+//-------------------------------------------------------------------------------------------- Wave Animation start
+int cx = 22;
+int cy = 3;
+void WaveAnimation() {
+	if(animationFrame == 0) {
+		frontPanel.flash(0,0,0);
+		leftBoot.flash(0,128,0);
+		rightBoot.flash(128,0,0);
+		r = (int)random(0, 128);
+		g = (int)random(0, 128);
+		b = (int)random(0, 128);
+		cx = 21; cy = 3;
+		eyes.red();
+	}
+	for(int y = 0; y < FRONT_HEIGHT; y++) {
+		for(int x = 0; x < FRONT_WIDTH; x++) {
+			int index = frontPanel.gridToIndex(x,y);
+			double rr = frontPanel.getRed(index) * 0.95;
+			double gg = frontPanel.getGreen(index) * 0.95;
+			double bb = frontPanel.getBlue(index) * 0.95;
+      if(rr < 10) {rr = 0;}
+      if(gg < 10) {gg = 0;}
+      if(bb < 10) {bb = 0;}
+			frontPanel.setIndex(index,rr,gg,bb);
+
+		}
+	}
+	r = ((r + (int)random(-5, 6)) + 128) % 128;
+	g = ((g + (int)random(-5, 6)) + 128) % 128;
+	b = ((b + (int)random(-5, 6)) + 128) % 128;
+
+	cx = ((cx + (int)random(-1, 2)) + FRONT_WIDTH) % FRONT_WIDTH;
+	cy = ((cy + (int)random(-1, 2)) + FRONT_HEIGHT) % FRONT_HEIGHT;
+
+	for(int i = 0; i < 4; i++) {
+		int cxx =  ((cx + i * 11) % FRONT_WIDTH);
+
+		int index = frontPanel.gridToIndex(cxx,cy);
+		frontPanel.setIndex(index,r,g,b);
+	}
+
+   rightBoot.flash(r,g,b);
+   leftBoot.flash(r,g,b);
+	
+
+	animationFrame++;
+}
+//-------------------------------------------------------------------------------------------- Wave Animation End
+//-------------------------------------------------------------------------------------------- Cheveron Animation start
 void CheveronAnimation() {
 	int spacing = 7;
 	if(animationFrame == 0) {
@@ -383,6 +436,7 @@ void CheveronAnimation() {
 	frontPanel.pull( r,g,b);
 	animationFrame++;
 }
+//-------------------------------------------------------------------------------------------- Cheveron Animation end
 //-------------------------------------------------------------------------------------------- Boot And Cats Animation start
 void BootsAndCatsAnimation() {
 	int totalFramesInAnimation = 16;
@@ -589,7 +643,7 @@ void setup() {
 	//AUDIO Setup
 	sampling_period_us = round(1000000*(1.0/SAMPLING_FREQUENCY));
 	pinMode(A3, INPUT);
-
+  animationFrame = 0;
 
 	currentAnimationStartTime = millis();
 	//Animation Selection
@@ -600,6 +654,7 @@ void setup() {
 	//SoftTimer.add(&audioThread);
 	//SoftTimer.add(&drawingThread);
 	//SoftTimer.add(&AnimationThread);
+  
 }
 //-------------------------------------------------------------------------------------------- Setup end
 void loop() {
